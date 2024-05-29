@@ -29065,6 +29065,28 @@ function run() {
             });
             core.info(`🏆 API response status: ${dispatchResp.status}`);
             core.setOutput('workflowId', foundWorkflow.id);
+            // New functionality to make this action synchronous and wait for the workflow to complete
+            if (core.getInput('waitTime')) {
+                const waitTime = parseInt(core.getInput('waitTime'));
+                if (isNaN(waitTime)) {
+                    throw new Error('waitTime must be a number');
+                }
+                const checkStatusInterval = 10000;
+                const waitForCompletionTimeout = waitTime * 1000;
+                let timeElapsed = 0;
+                // eslint-disable-next-line no-constant-condition
+                while (true) {
+                    yield sleep(checkStatusInterval);
+                    timeElapsed += checkStatusInterval;
+                    if (timeElapsed > waitForCompletionTimeout) {
+                        throw new Error(`Workflow did not complete within ${waitTime} seconds`);
+                    }
+                    const workflowRun = yield octokit.request(`GET /repos/${owner}/${repo}/actions/runs/${dispatchResp.data.id}`);
+                    if (workflowRun.data.status === 'completed') {
+                        break;
+                    }
+                }
+            }
         }
         catch (error) {
             const e = error;
@@ -29080,6 +29102,10 @@ function run() {
 // Call the main task run function
 //
 run();
+// sleep
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 
 /***/ }),
@@ -30937,7 +30963,7 @@ module.exports = parseParams
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"workflow-dispatch","version":"1.2.1","description":"Trigger running GitHub Actions workflows","main":"dist/index.js","scripts":{"build":"ncc build src/main.ts -o dist","lint":"eslint src/"},"keywords":["github","actions"],"author":"Ben Coleman","license":"MIT","devDependencies":{"@actions/core":"^1.10.0","@actions/github":"^6.0.0","@vercel/ncc":"^0.38.1","@typescript-eslint/eslint-plugin":"^7.2.0","@typescript-eslint/parser":"^7.2.0","eslint":"^8.57.0","typescript":"^5.4.2"}}');
+module.exports = JSON.parse('{"name":"workflow-dispatch","version":"1.2.3","description":"Trigger running GitHub Actions workflows","main":"dist/index.js","scripts":{"build":"ncc build src/main.ts -o dist","lint":"eslint src/"},"keywords":["github","actions"],"author":"Ben Coleman","license":"MIT","devDependencies":{"@actions/core":"^1.10.0","@actions/github":"^6.0.0","@typescript-eslint/eslint-plugin":"^7.2.0","@typescript-eslint/parser":"^7.2.0","@vercel/ncc":"^0.38.1","eslint":"^8.57.0","typescript":"^5.4.2"}}');
 
 /***/ })
 

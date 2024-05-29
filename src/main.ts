@@ -71,6 +71,33 @@ async function run(): Promise<void> {
 
     core.info(`🏆 API response status: ${dispatchResp.status}`)
     core.setOutput('workflowId', foundWorkflow.id)
+
+    // New functionality to make this action synchronous and wait for the workflow to complete
+    if (core.getInput('waitTime')) {
+      const waitTime = parseInt(core.getInput('waitTime'))
+      if (isNaN(waitTime)) {
+        throw new Error('waitTime must be a number')
+      }
+
+      const checkStatusInterval = 10000
+      const waitForCompletionTimeout = waitTime * 1000
+
+      let timeElapsed = 0
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        await sleep(checkStatusInterval)
+        timeElapsed += checkStatusInterval
+        if (timeElapsed > waitForCompletionTimeout) {
+          throw new Error(`Workflow did not complete within ${waitTime} seconds`)
+        }
+
+        const workflowRun = await octokit.request(`GET /repos/${owner}/${repo}/actions/runs/${dispatchResp.data.id}`)
+        if (workflowRun.data.status === 'completed') {
+          break
+        }
+      }
+    }
+
   } catch (error) {
     const e = error as Error
 
@@ -83,7 +110,13 @@ async function run(): Promise<void> {
   }
 }
 
+
 //
 // Call the main task run function
 //
 run()
+
+// sleep
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}

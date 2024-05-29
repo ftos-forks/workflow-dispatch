@@ -18,6 +18,9 @@ inputs:
   repo:
     description: "Repo owner & name, slash separated, only set if invoking a workflow in a different repo"
     required: false
+  waitTime:
+    description: "When set will wait for the triggered workflow to complete, specify in seconds"
+    required: false
 
 runs:
   using: "node20"
