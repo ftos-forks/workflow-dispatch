@@ -29059,6 +29059,7 @@ function run() {
             console.log(`🔎 Found workflow, id: ${foundWorkflow.id}, name: ${foundWorkflow.name}, path: ${foundWorkflow.path}`);
             // Call workflow_dispatch API
             console.log('🚀 Calling GitHub API to dispatch workflow...');
+            const createdTime = Date.now() - 5000;
             const dispatchResp = yield octokit.request(`POST /repos/${owner}/${repo}/actions/workflows/${foundWorkflow.id}/dispatches`, {
                 ref: ref,
                 inputs: inputs
@@ -29067,12 +29068,27 @@ function run() {
             core.setOutput('workflowId', foundWorkflow.id);
             // New functionality to make this action synchronous and wait for the workflow to complete
             if (core.getInput('waitTime')) {
+                yield sleep(5000);
+                // Find the run ID of the dispatched workflow
+                core.info('🔎 Finding run ID for dispatched workflow...');
+                // List workflows via API, and handle paginated results
+                const runs = yield octokit.paginate(octokit.rest.actions.listWorkflowRuns.endpoint.merge({ owner, repo, workflow_id: foundWorkflow.id, event: 'workflow_dispatch' }));
+                console.log(`🔎 First run is ${runs[0].status} and id ${runs[0].id} created at ${runs[0].created_at}`);
+                // for (const run of runs) {
+                //   console.log(`run.created_at: ${new Date(run.created_at).setMilliseconds(0)}, createdTime: ${createdTime}`)
+                //   if (new Date(run.created_at).setMilliseconds(0) >= createdTime) {
+                //     core.info(`runId :::: ${run.id}`)
+                //     break
+                //   }
+                // }
+                // core.info(`DEBUG runsResp: ${JSON.stringify(runs, null, 3)}`)
                 const waitTime = parseInt(core.getInput('waitTime'));
                 if (isNaN(waitTime)) {
                     throw new Error('waitTime must be a number');
                 }
                 const checkStatusInterval = 10000;
                 const waitForCompletionTimeout = waitTime * 1000;
+                core.info(`⏳ Waiting for workflow to complete, timeout: ${waitTime} seconds`);
                 let timeElapsed = 0;
                 // eslint-disable-next-line no-constant-condition
                 while (true) {
@@ -29083,6 +29099,7 @@ function run() {
                     }
                     const workflowRun = yield octokit.request(`GET /repos/${owner}/${repo}/actions/runs/${dispatchResp.data.id}`);
                     if (workflowRun.data.status === 'completed') {
+                        core.info(`🚩 Workflow completed with status: ${workflowRun.data.conclusion} after ${timeElapsed} seconds`);
                         break;
                     }
                 }

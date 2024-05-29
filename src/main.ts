@@ -15,6 +15,12 @@ type Workflow = {
   path: string
 }
 
+type Run = {
+  id: number
+  created_at: string
+  status: string
+}
+
 //
 // Main task function (async wrapper)
 //
@@ -64,6 +70,7 @@ async function run(): Promise<void> {
 
     // Call workflow_dispatch API
     console.log('🚀 Calling GitHub API to dispatch workflow...')
+    const createdTime = Date.now() - 5000
     const dispatchResp = await octokit.request(`POST /repos/${owner}/${repo}/actions/workflows/${foundWorkflow.id}/dispatches`, {
       ref: ref,
       inputs: inputs
@@ -74,6 +81,28 @@ async function run(): Promise<void> {
 
     // New functionality to make this action synchronous and wait for the workflow to complete
     if (core.getInput('waitTime')) {
+      await sleep(5000)
+      // Find the run ID of the dispatched workflow
+      core.info('🔎 Finding run ID for dispatched workflow...')
+
+      // List workflows via API, and handle paginated results
+      const runs: Run[] = await octokit.paginate(
+        octokit.rest.actions.listWorkflowRuns.endpoint.merge({ owner, repo, workflow_id: foundWorkflow.id, event: 'workflow_dispatch' })
+      )
+
+      console.log(`🔎 First run is ${runs[0].status} and id ${runs[0].id} created at ${runs[0].created_at}`)
+
+      // for (const run of runs) {
+      //   console.log(`run.created_at: ${new Date(run.created_at).setMilliseconds(0)}, createdTime: ${createdTime}`)
+
+      //   if (new Date(run.created_at).setMilliseconds(0) >= createdTime) {
+      //     core.info(`runId :::: ${run.id}`)
+      //     break
+      //   }
+      // }
+
+      // core.info(`DEBUG runsResp: ${JSON.stringify(runs, null, 3)}`)
+
       const waitTime = parseInt(core.getInput('waitTime'))
       if (isNaN(waitTime)) {
         throw new Error('waitTime must be a number')
