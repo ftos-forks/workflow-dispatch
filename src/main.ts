@@ -82,6 +82,8 @@ async function run(): Promise<void> {
       const checkStatusInterval = 10000
       const waitForCompletionTimeout = waitTime * 1000
 
+      core.info(`⏳ Waiting for workflow to complete, timeout: ${waitTime} seconds`)
+
       let timeElapsed = 0
       // eslint-disable-next-line no-constant-condition
       while (true) {
@@ -93,6 +95,7 @@ async function run(): Promise<void> {
 
         const workflowRun = await octokit.request(`GET /repos/${owner}/${repo}/actions/runs/${dispatchResp.data.id}`)
         if (workflowRun.data.status === 'completed') {
+          core.info(`🚩 Workflow completed with status: ${workflowRun.data.conclusion} after ${timeElapsed} seconds`)
           break
         }
       }
